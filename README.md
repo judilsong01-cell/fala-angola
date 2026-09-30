@@ -64,3 +64,20 @@ Em [frases/](frases/LEIA-ME.md) estão os ficheiros para um falante preencher. D
 2. No DNS do domínio: quatro registos `A` para `185.199.108.153`, `185.199.109.153`, `185.199.110.153` e `185.199.111.153`, e um `CNAME` de `www` para `judilsong01-cell.github.io`.
 3. Diz-me o domínio e eu ligo-o ao GitHub Pages (ficheiro `docs/CNAME` e definição do site), ou faz-o em *Settings → Pages → Custom domain*.
 4. Quando o GitHub validar o DNS, activa *Enforce HTTPS*.
+
+## Aplicação Android (APK)
+
+A aplicação Android usa o **Capacitor**: é esta mesma aplicação web, empacotada dentro de um APK, por isso funciona **totalmente offline** (lições, dicionários, imagens). Dentro da app, a voz usa o reconhecimento do Android e as palavras em português são lidas pela síntese de voz do telemóvel.
+
+- Id: `ao.faladangola.app`. Android 7.0 (API 24) ou superior.
+- Compilar (precisa de JDK 21 e do Android SDK; `ANDROID_HOME` definido): `npm install` e depois `npm run android:apk`. O APK fica em `android/app/build/outputs/apk/debug/app-debug.apk`.
+- Instalar no telemóvel: copia o APK, abre-o e permite "instalar apps desconhecidas"; ou liga o telemóvel com depuração USB e corre `adb install -r app-debug.apk`.
+- Ao jogar, o Android pede autorização para o microfone. Sem internet, a voz só funciona se o pacote de português estiver instalado no aparelho (Definições > Google > Voz > Reconhecimento de voz offline).
+- Depois de alterar a app web: `npm run android:sync` actualiza o projecto Android e volta a compilar-se o APK.
+- Ícones e ecrã de arranque: `node tools/icons-android.mjs`.
+
+### Publicar na Google Play (passos do titular da conta)
+
+1. Criar uma chave de assinatura própria (`keytool -genkey -v -keystore fala-angola.jks -alias fala -keyalg RSA -keysize 2048 -validity 10000`) e guardá-la em segurança; sem ela não há actualizações.
+2. Configurar a assinatura em `android/app/build.gradle` e gerar o pacote: `cd android && gradlew.bat bundleRelease`.
+3. Carregar o `.aab` na Google Play Console (conta de programador paga uma vez), com ícone, capturas de ecrã, política de privacidade e a declaração do uso do microfone.

@@ -1,0 +1,7 @@
+{
+  "appId": "ao.faladangola.app",
+  "appName": "Fala Angola",
+  "webDir": "docs",
+  "android": { "allowMixedContent": false },
+  "server": { "androidScheme": "https" }
+}
