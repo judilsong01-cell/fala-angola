@@ -151,3 +151,29 @@ export const COURSES = {
   umbundu:{id:'umbundu',name:'Umbundu',WORDS,UNITS,MISSIONS,MOTIVATION,dictionary:'dictionary.json'},
   kimbundu:{id:'kimbundu',name:'Kimbundu',WORDS:KIM_WORDS_FULL,UNITS:KIM_UNITS,MISSIONS:makeMissions(KIM_WORDS_FULL,KIM_STORIES),MOTIVATION:KIM_MOTIVATION,dictionary:'kimbundu.json'},
 };
+
+// Vidas (estilo Duolingo): 5 no máximo, recuperam uma a cada 15 minutos. Funções puras, o estado é {value, at}.
+export const HEART_MAX = 5, HEART_MS = 15 * 60 * 1000;
+export function regenHearts(h, now = Date.now()) {
+  const value = Number.isFinite(h?.value) ? Math.min(HEART_MAX, Math.max(0, Math.floor(h.value))) : HEART_MAX;
+  let at = Number.isFinite(h?.at) ? Math.min(h.at, now) : now;
+  if (value >= HEART_MAX) return { value: HEART_MAX, at: now };
+  const gained = Math.floor((now - at) / HEART_MS);
+  if (!gained) return { value, at };
+  const next = Math.min(HEART_MAX, value + gained);
+  return { value: next, at: next >= HEART_MAX ? now : at + gained * HEART_MS };
+}
+export function spendHeart(h, now = Date.now()) { const r = regenHearts(h, now); return { value: Math.max(0, r.value - 1), at: r.value >= HEART_MAX ? now : r.at }; }
+export function gainHeart(h, now = Date.now()) { const r = regenHearts(h, now); const value = Math.min(HEART_MAX, r.value + 1); return { value, at: value >= HEART_MAX ? now : r.at }; }
+export function heartWait(h, now = Date.now()) { const r = regenHearts(h, now); return r.value >= HEART_MAX ? 0 : Math.max(0, r.at + HEART_MS - now); }
+
+// Sequência de exercícios de uma lição: 1) escolher a palavra, 2) reconhecer o significado ou ouvir, 3) ligar pares.
+export function buildSteps(ids, { review = false, canListen = false, random = Math.random } = {}) {
+  const steps = ids.map(id => ({ kind: 'choose', id }));
+  if (!review) {
+    const kinds = canListen ? ['reverse', 'listen'] : ['reverse'];
+    shuffle(ids, random).forEach((id, i) => steps.push({ kind: kinds[i % kinds.length], id }));
+  }
+  if (ids.length >= 3) steps.push({ kind: 'match', ids: [...ids] });
+  return steps;
+}

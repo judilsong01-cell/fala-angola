@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {COURSES,WORDS,MOTIVATION,UNITS,MISSIONS,reviewQueue,chapterDone,chapterOpen,normalize,isCorrect,emptyProgress,reward,streak,sanitizeProgress} from '../public/core.js';
+import {COURSES,regenHearts,spendHeart,gainHeart,heartWait,buildSteps,WORDS,MOTIVATION,UNITS,MISSIONS,reviewQueue,chapterDone,chapterOpen,normalize,isCorrect,emptyProgress,reward,streak,sanitizeProgress} from '../public/core.js';
 test('respostas aceitam acentos e pontuação sem aceitar respostas diferentes',()=>{
  assert.equal(normalize('  ÁGUA! '),'agua');assert.ok(isCorrect('Thank you!','thank you'));assert.ok(!isCorrect('no thank you','thank you'));assert.ok(!isCorrect('água','casa'));
 });
@@ -61,4 +61,25 @@ test('progresso por língua respeita o vocabulário de cada curso',()=>{
  assert.deepEqual(sanitizeProgress({learned:['Mênya','ovava'],mistakes:['Bhata','ondjo']},k).learned,['Mênya']);
  assert.deepEqual(reward(emptyProgress(),{missed:['Bhata']},new Date(),k).mistakes,['Bhata']);
  assert.deepEqual(reviewQueue({mistakes:['Bhata']},5,k),[1]);
+});
+test('vidas recuperam uma a cada 15 minutos e nunca passam de 5',()=>{
+ const t0=1_000_000;let h={value:5,at:t0};
+ h=spendHeart(h,t0);h=spendHeart(h,t0);assert.equal(h.value,3);
+ assert.equal(regenHearts(h,t0+14*60_000).value,3);
+ assert.equal(regenHearts(h,t0+15*60_000).value,4);
+ assert.equal(regenHearts(h,t0+31*60_000).value,5);
+ assert.equal(regenHearts(h,t0+10*60*60_000).value,5);
+ assert.equal(heartWait(h,t0+5*60_000),10*60_000);
+ assert.equal(gainHeart({value:5,at:t0},t0).value,5);
+ assert.equal(spendHeart({value:0,at:t0},t0).value,0);
+ assert.equal(regenHearts({value:'x',at:'y'},t0).value,5);
+});
+test('lição tem escolher, reconhecer/ouvir e ligar pares; revisão só escolhe e liga',()=>{
+ const steps=buildSteps([0,1,2,3],{canListen:true,random:()=>0.5});
+ assert.equal(steps.filter(s=>s.kind==='choose').length,4);
+ assert.equal(steps.filter(s=>s.kind==='reverse'||s.kind==='listen').length,4);
+ assert.ok(steps.some(s=>s.kind==='listen')&&steps.some(s=>s.kind==='reverse'));
+ assert.equal(steps.at(-1).kind,'match');
+ assert.ok(!buildSteps([0,1,2,3]).some(s=>s.kind==='listen'));
+ const rev=buildSteps([4,5],{review:true});assert.deepEqual(rev.map(s=>s.kind),['choose','choose']);
 });

@@ -1,4 +1,4 @@
-import {COURSES,chapterMissions as coreMissions,chapterOpen,chapterDone as coreDone,reviewQueue as coreReview,normalize,isCorrect,emptyProgress,sanitizeProgress as coreSanitize,streak,reward as coreReward,dayKey,shuffle} from './core.js';
+import {COURSES,chapterMissions as coreMissions,chapterOpen,chapterDone as coreDone,reviewQueue as coreReview,normalize,isCorrect,emptyProgress,sanitizeProgress as coreSanitize,streak,reward as coreReward,dayKey,shuffle,HEART_MAX,regenHearts,spendHeart,gainHeart,heartWait,buildSteps} from './core.js';
 // Curso activo (Umbundu ou Kimbundu): as funções abaixo trabalham sempre sobre ele.
 let lang='umbundu',course=COURSES.umbundu,WORDS=course.WORDS,MOTIVATION=course.MOTIVATION,UNITS=course.UNITS,MISSIONS=course.MISSIONS;
 const chapterMissions=c=>coreMissions(c,course),chapterDone=(p,c)=>coreDone(p,c,course),reviewQueue=(p,max)=>coreReview(p,max,course),reward=(p,change,now)=>coreReward(p,change,now,course);
@@ -42,15 +42,17 @@ function loadAll(){
  try{raw=JSON.parse(localStorage.getItem(STORAGE));if(!raw){const old=JSON.parse(localStorage.getItem(OLD_STORAGE));if(old)raw={lang:'umbundu',umbundu:old};}}catch{storageOK=false;}
  raw=raw&&typeof raw==='object'?raw:{};
  for(const id of Object.keys(COURSES))all[id]=coreSanitize(raw[id],COURSES[id]);
+ hearts=regenHearts(raw.hearts);
  return COURSES[raw.lang]?raw.lang:'umbundu';
 }
 function useCourse(id){lang=id;course=COURSES[id];WORDS=course.WORDS;MOTIVATION=course.MOTIVATION;UNITS=course.UNITS;MISSIONS=course.MISSIONS;progress=all[id];chapter=null;dictLang=id;search='';limit=24;}
-function persist(){try{localStorage.setItem(STORAGE,JSON.stringify({lang,...all}));}catch{storageOK=false;toast('O navegador não conseguiu guardar o progresso.');}}
+function persist(){try{localStorage.setItem(STORAGE,JSON.stringify({lang,hearts,...all}));}catch{storageOK=false;toast('O navegador não conseguiu guardar o progresso.');}}
 let view='learn',lesson=null,dictionary=null,dictError=false,search='',limit=24,recognition=null,arena=null,chapter=null,timer=null,toastTimer=null,focusReturn=null;
 const navItems=[['learn','book','Aprender'],['arena','mic','Desafio de voz'],['dictionary','search','Dicionário'],['achievements','trophy','Conquistas']];
 function save(change){progress=reward(progress,change);all[lang]=progress;const days=[...new Set(Object.values(all).flatMap(p=>p.days))].sort();for(const p of Object.values(all))p.days=days;updateStats();persist();}
 function updateStats(){
- const xp=$('.stat.gem'),days=$('.stat.fire'),best=$('.arena-sidebar h2');
+ const xp=$('.stat.gem'),days=$('.stat.fire'),best=$('.arena-sidebar h2'),life=$('.stat.heart');
+ if(life)life.innerHTML=`${icon('heart')} ${heartsNow()}`;
  if(xp)xp.innerHTML=`${icon('diamond')} ${progress.xp} XP`;
  if(days)days.innerHTML=`${icon('fire')} ${streak(progress.days)}`;
  if(best)best.innerHTML=`${progress.arenaDone.length} <span style="font-size:13px;color:#9ba08f">/ ${MISSIONS.length} missões</span>`;
@@ -59,7 +61,7 @@ function toast(message){$('#toast').textContent=message;$('#toast').className='t
 const brand=()=>`<span class="brand-mark">${icon('mic')}</span><span>fala angola<small>PALAVRAS QUE NOS LIGAM</small></span>`;
 function navButtons(){return navItems.map(([id,i,label])=>`<button data-view="${id}" class="${view===id?'active':''}" ${view===id?'aria-current="page"':''}>${icon(i)}<span>${label}</span>${id==='arena'?'<span class="new">NOVO</span>':''}</button>`).join('');}
 function shell(){
- $('#app').innerHTML=`<aside class="sidebar"><a href="#" class="brand" data-home>${brand()}</a><nav class="nav" aria-label="Principal">${navButtons()}</nav><div class="sidebar-note">${icon('leaf')}<p><b>A nossa língua. A nossa história.</b><br>Uma palavra de cada vez,<br>mais perto das nossas raízes.</p></div><div class="sidebar-bottom"><span class="avatar">TU</span><span>O teu caminho<small>Explorador · nível ${Math.floor(progress.xp/100)+1}</small></span></div></aside><div class="workspace"><header class="topbar"><span class="crumb">O teu espaço de aprendizagem</span><a href="#" data-home class="brand mobile-brand">${brand()}</a><div class="top-right"><button class="language" data-language aria-label="Escolher língua"><span class="language-leaf">${icon('leaf')}</span> ${course.name} ${icon('chevron')}</button><span class="stat fire" title="Dias seguidos">${icon('fire')} ${streak(progress.days)}</span><span class="stat gem" title="Pontos de experiência">${icon('diamond')} ${progress.xp} XP</span></div></header><main class="main" id="main"></main></div><nav class="mobile-nav" aria-label="Navegação móvel">${navButtons()}</nav>`;
+ $('#app').innerHTML=`<aside class="sidebar"><a href="#" class="brand" data-home>${brand()}</a><nav class="nav" aria-label="Principal">${navButtons()}</nav><div class="sidebar-note">${icon('leaf')}<p><b>A nossa língua. A nossa história.</b><br>Uma palavra de cada vez,<br>mais perto das nossas raízes.</p></div><div class="sidebar-bottom"><span class="avatar">TU</span><span>O teu caminho<small>Explorador · nível ${Math.floor(progress.xp/100)+1}</small></span></div></aside><div class="workspace"><header class="topbar"><span class="crumb">O teu espaço de aprendizagem</span><a href="#" data-home class="brand mobile-brand">${brand()}</a><div class="top-right"><button class="language" data-language aria-label="Escolher língua"><span class="language-leaf">${icon('leaf')}</span> ${course.name} ${icon('chevron')}</button><span class="stat heart" title="Vidas">${icon('heart')} ${heartsNow()}</span><span class="stat fire" title="Dias seguidos">${icon('fire')} ${streak(progress.days)}</span><span class="stat gem" title="Pontos de experiência">${icon('diamond')} ${progress.xp} XP</span></div></header><main class="main" id="main"></main></div><nav class="mobile-nav" aria-label="Navegação móvel">${navButtons()}</nav>`;
  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>navigate(b.dataset.view));
  document.querySelectorAll('[data-home]').forEach(b=>b.onclick=e=>{e.preventDefault();navigate('learn');});
  $('[data-language]').onclick=languageModal;
@@ -80,35 +82,90 @@ function languageModal(){
  $('.close').onclick=()=>closeModal();
  document.querySelectorAll('[data-lang]').forEach(b=>b.onclick=()=>{const id=b.dataset.lang;if(id===lang){closeModal();return;}stopVoice();useCourse(id);persist();navigate('learn');toast('Agora estás a aprender '+course.name+'.');});
 }
-function startLesson(unit){startSession(UNITS[unit].ids,{unit,label:UNITS[unit].label,title:UNITS[unit].title});}
+// ---- Vidas e exercícios ----
+let hearts={value:HEART_MAX,at:Date.now()};
+const canSpeak=()=>'speechSynthesis' in window&&typeof SpeechSynthesisUtterance==='function';
+const hasPtVoice=()=>canSpeak()&&speechSynthesis.getVoices().some(v=>/^pt/i.test(v.lang));
+if(canSpeak())speechSynthesis.getVoices();
+function heartsNow(){hearts=regenHearts(hearts);return hearts.value;}
+function spend(){hearts=spendHeart(hearts);persist();updateStats();return hearts.value;}
+function earn(){hearts=gainHeart(hearts);persist();updateStats();}
+function speak(text){if(!canSpeak())return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='pt-PT';const v=speechSynthesis.getVoices().find(x=>/^pt/i.test(x.lang));if(v)u.voice=v;u.rate=.9;speechSynthesis.speak(u);}catch{}}
+function noHearts(){
+ lesson=null;const wait=Math.max(1,Math.ceil(heartWait(hearts)/60000)),canReview=reviewQueue(progress).length>0;
+ openModal(`<div class="completion"><div class="eyebrow">SEM VIDAS</div><h2>Fizeste uma pausa merecida.</h2><p>As vidas voltam uma a uma: a próxima em cerca de ${wait} min.<br>${canReview?'Podes ganhar uma vida já, a rever as palavras em que erraste.':'Volta daqui a pouco, a praticar também se aprende.'}</p>${canReview?`<button class="primary" id="heart-review">Rever erros e ganhar uma vida ${icon('heart')}</button>`:''}<button class="outline" id="heart-back" style="margin-left:12px">Voltar ao percurso</button></div>`);
+ $('#heart-review')?.addEventListener('click',()=>{closeModal(false);startReview();});$('#heart-back').onclick=()=>closeModal();
+}
+function startLesson(unit){if(!heartsNow()){noHearts();return;}startSession(UNITS[unit].ids,{unit,label:UNITS[unit].label,title:UNITS[unit].title});}
 function startReview(){const ids=reviewQueue(progress);if(ids.length)startSession(shuffle(ids),{review:true,unit:null,label:'Revisão de erros',title:'Revisão de erros'});}
-function startSession(ids,meta){lesson={...meta,ids,index:0,answers:0,selected:null,checked:false,missed:false,options:[],sessionLearned:[]};showQuestion();}
-function showQuestion(){const l=lesson,w=WORDS[l.ids[l.index]];l.selected=null;l.checked=false;l.missed=false;l.options=shuffle([w,...shuffle(WORDS.filter(x=>x.word!==w.word)).slice(0,3)]);renderQuestion();}
+function startSession(ids,meta){lesson={...meta,ids,steps:buildSteps(ids,{review:!!meta.review,canListen:hasPtVoice()}),index:0,answers:0,selected:null,checked:false,missed:false,options:[],sessionLearned:[]};showStep();}
+function showStep(){
+ const l=lesson,st=l.steps[l.index],w=WORDS[st.id];l.selected=null;l.checked=false;l.missed=false;
+ if(st.kind==='match'){renderMatch();return;}
+ const others=shuffle(WORDS.filter(x=>st.kind==='reverse'?x.pt!==w.pt:x.word!==w.word)).slice(0,3);
+ l.options=shuffle([w,...others]).map(o=>({label:st.kind==='reverse'?o.pt:o.word,ok:o===w}));
+ renderQuestion();
+}
+const progressBar=l=>`<div class="modal-header"><button class="close" aria-label="Sair da lição">×</button><div class="progress"><div style="width:${l.index/l.steps.length*100}%"></div></div><span style="font-size:12px;color:#8b9482">${l.index+1} / ${l.steps.length}</span></div>`;
 function renderQuestion(){
- const l=lesson,w=WORDS[l.ids[l.index]];
- openModal(`<div class="modal-header"><button class="close" aria-label="Sair da lição">×</button><div class="progress"><div style="width:${l.index/l.ids.length*100}%"></div></div><span style="font-size:12px;color:#8b9482">${l.index+1} / ${l.ids.length}</span></div><div class="eyebrow">${l.label} · ${course.name.toUpperCase()}</div><h2>Como se diz “${w.pt}” em ${course.name}?</h2><div class="question-card">${icon(w.icon)}<span>${w.pt}</span></div><div class="options">${l.options.map((o,i)=>`<button class="option" data-answer="${i}"><span>${i+1}</span>${o.word}</button>`).join('')}</div><div id="lesson-art"></div><div class="lesson-bottom"><p class="lesson-message" role="status">Escolhe a palavra certa.</p><button class="primary" id="check" disabled>Verificar ${icon('arrow')}</button></div>`);
+ const l=lesson,st=l.steps[l.index],w=WORDS[st.id];
+ const head={choose:`<h2>Como se diz “${w.pt}” em ${course.name}?</h2><div class="question-card">${icon(w.icon)}<span>${w.pt}</span></div>`,
+  reverse:`<h2>O que significa esta palavra?</h2><div class="question-card"><span>${escape(w.word)}</span></div>`,
+  listen:`<h2>Ouve e escolhe a palavra em ${course.name}</h2><button class="listen-button" id="speak" aria-label="Ouvir a palavra em português">🔊</button><p class="voice-note">O áudio está em português. Ainda não há gravações em ${course.name}.</p>`}[st.kind];
+ openModal(`${progressBar(l)}<div class="eyebrow">${l.label} · ${course.name.toUpperCase()}</div>${head}<div class="options">${l.options.map((o,i)=>`<button class="option" data-answer="${i}"><span>${i+1}</span>${escape(o.label)}</button>`).join('')}</div><div id="lesson-art"></div><div class="lesson-bottom"><p class="lesson-message" role="status">${st.kind==='reverse'?'Escolhe o significado certo.':'Escolhe a palavra certa.'}</p><button class="primary" id="check" disabled>Verificar ${icon('arrow')}</button></div>`);
  $('.close').onclick=()=>closeModal();
  document.querySelectorAll('[data-answer]').forEach(b=>b.onclick=()=>{if(l.checked)return;l.selected=Number(b.dataset.answer);document.querySelectorAll('.option').forEach(x=>x.classList.toggle('selected',x===b));$('#check').disabled=false;$('.lesson-message').textContent='Pronto para verificar?';});
  $('#check').onclick=()=>checkLesson();
+ if(st.kind==='listen'){$('#speak').onclick=()=>speak(w.pt);setTimeout(()=>{if(lesson===l&&l.steps[l.index]===st)speak(w.pt);},250);}
 }
 function checkLesson(){
- const l=lesson;if(!l)return;const w=WORDS[l.ids[l.index]];
- if(l.checked){l.index++;if(l.index===l.ids.length)finishLesson();else showQuestion();return;}
- if(l.selected===null)return;
- if(l.options[l.selected].word!==w.word){
+ const l=lesson;if(!l)return;const st=l.steps[l.index];
+ if(l.checked){l.index++;if(l.index===l.steps.length)finishLesson();else showStep();return;}
+ if(st.kind==='match'||l.selected===null)return;
+ const w=WORDS[st.id];
+ if(!l.options[l.selected].ok){
   if(!l.missed)save({missed:[w.word]});
   l.missed=true;const b=$(`[data-answer="${l.selected}"]`);b.classList.add('wrong');b.classList.remove('selected');b.disabled=true;l.selected=null;$('#check').disabled=true;
-  $('.lesson-message').textContent='Ainda não. Tenta outra palavra — aprender também é experimentar.';return;
+  if(!l.review&&!spend()){noHearts();return;}
+  $('.lesson-message').textContent='Ainda não. Tenta outra — aprender também é experimentar.';return;
  }
  l.checked=true;if(!l.missed){l.answers++;save({fixed:[w.word]});}
  l.sessionLearned.push(w.word);$(`[data-answer="${l.selected}"]`).classList.add('correct');document.querySelectorAll('.option').forEach(b=>b.disabled=true);
- $('.lesson-message').textContent=`Isso mesmo! ${w.word} significa ${w.pt}.`;$('#lesson-art').innerHTML=wordArt(WORDS.indexOf(w));
- $('#check').innerHTML=`${l.index===l.ids.length-1?'Concluir':'Continuar'} ${icon('arrow')}`;
+ $('.lesson-message').textContent=`Isso mesmo! ${w.word} significa ${w.pt}.`;$('#lesson-art').innerHTML=wordArt(st.id);
+ $('#check').innerHTML=`${l.index===l.steps.length-1?'Concluir':'Continuar'} ${icon('arrow')}`;
+}
+function renderMatch(){
+ const l=lesson,st=l.steps[l.index],words=st.ids.map(i=>WORDS[i]);
+ l.match={left:shuffle(words),right:shuffle(words),picked:null,done:new Set(),missed:new Set()};
+ openModal(`${progressBar(l)}<div class="eyebrow">${l.label} · ${course.name.toUpperCase()}</div><h2>Liga cada palavra ao seu significado</h2><div class="match-grid"><div class="match-col" id="match-left"></div><div class="match-col" id="match-right"></div></div><div class="lesson-bottom"><p class="lesson-message" role="status">Toca numa palavra e depois no significado.</p><button class="primary" id="check" disabled>Continuar ${icon('arrow')}</button></div>`);
+ $('.close').onclick=()=>closeModal();$('#check').onclick=()=>checkLesson();paintMatch();
+}
+function paintMatch(flash){
+ const l=lesson,m=l.match;
+ for(const [side,col,text] of [['left',m.left,w=>w.word],['right',m.right,w=>w.pt]])$(`#match-${side}`).innerHTML=col.map(w=>`<button class="match-btn ${m.done.has(w.word)?'done':''} ${m.picked?.side===side&&m.picked.word===w.word?'picked':''} ${flash&&flash.side===side&&flash.word===w.word?'wrong':''}" data-side="${side}" data-word="${escape(w.word)}" ${m.done.has(w.word)?'disabled':''}>${escape(text(w))}</button>`).join('');
+ document.querySelectorAll('.match-btn').forEach(b=>b.onclick=()=>matchClick(b.dataset.side,b.dataset.word));
+}
+function matchClick(side,word){
+ const l=lesson;if(!l)return;const m=l.match;if(m.done.has(word)||l.checked)return;
+ if(!m.picked||m.picked.side===side){m.picked={side,word};paintMatch();return;}
+ const first=m.picked;m.picked=null;
+ if(first.word===word){
+  m.done.add(word);paintMatch();
+  if(m.done.size===l.steps[l.index].ids.length){
+   l.checked=true;const clean=[...m.done].filter(x=>!m.missed.has(x));if(!m.missed.size)l.answers++;if(clean.length)save({fixed:clean});
+   l.sessionLearned.push(...m.done);$('.lesson-message').textContent=m.missed.size?'Conseguiste! Reve as que trocaste.':'Perfeito! Todas ligadas.';$('#check').disabled=false;
+   if(l.index===l.steps.length-1)$('#check').innerHTML=`Concluir ${icon('arrow')}`;
+  }
+  return;
+ }
+ const fresh=[first.word,word].filter(x=>!m.missed.has(x));fresh.forEach(x=>m.missed.add(x));if(fresh.length)save({missed:fresh});
+ paintMatch({side,word});$('.lesson-message').textContent='Não é esse par. Tenta de novo.';
+ if(!l.review&&!spend())noHearts();
 }
 function finishLesson(){
- const l=lesson,xp=l.review?l.answers*5:l.answers*10+10;
- save({xp,learned:l.sessionLearned,unit:l.review?null:l.unit});lesson=null;shell();renderLearn();
- openModal(`<div class="completion"><div class="star-large">${mascot()}</div><div class="eyebrow">${l.review?'ERROS TRANSFORMADOS EM APRENDIZAGEM':'UM PASSO MAIS PERTO'}</div><h2>${l.review?'Boa revisão!':'Já tens novas palavras contigo!'}</h2><p>Concluíste “${l.title}”.<br>${progress.mistakes.length?`Ainda tens ${progress.mistakes.length} palavra(s) para rever.`:'Não tens erros por rever.'}</p><div class="result-stats"><div><b>+${xp}</b><small>XP CONQUISTADOS</small></div><div><b>${l.answers} / ${l.ids.length}</b><small>À PRIMEIRA TENTATIVA</small></div></div><button class="primary" id="finish">Voltar ao meu percurso ${icon('arrow')}</button></div>`);
+ const l=lesson,total=l.steps.length,xp=l.review?l.answers*5:Math.round(l.answers/total*40)+10;
+ save({xp,learned:l.sessionLearned,unit:l.review?null:l.unit});if(l.review)earn();lesson=null;shell();renderLearn();
+ openModal(`<div class="completion"><div class="star-large">${mascot()}</div><div class="eyebrow">${l.review?'ERROS TRANSFORMADOS EM APRENDIZAGEM':'UM PASSO MAIS PERTO'}</div><h2>${l.review?'Boa revisão!':'Já tens novas palavras contigo!'}</h2><p>Concluíste “${l.title}”.<br>${l.review?'Ganhaste uma vida ❤️. ':''}${progress.mistakes.length?`Ainda tens ${progress.mistakes.length} palavra(s) para rever.`:'Não tens erros por rever.'}</p><div class="result-stats"><div><b>+${xp}</b><small>XP CONQUISTADOS</small></div><div><b>${l.answers} / ${total}</b><small>À PRIMEIRA TENTATIVA</small></div></div><button class="primary" id="finish">Voltar ao meu percurso ${icon('arrow')}</button></div>`);
  $('#finish').onclick=()=>closeModal();
 }
 function renderArena(){

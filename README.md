@@ -48,3 +48,19 @@ Os testes cobrem respostas, progresso, sequências de dias, integridade do vocab
 - Site: https://judilsong01-cell.github.io/fala-angola/ (abre no telemóvel e pode ser instalado; funciona offline depois da primeira visita).
 - Fontes e autorizações: ver [CREDITOS.md](CREDITOS.md).
 - `kimbundu-completo.jsonl` (extracção bruta) não vai para o repositório; gera-se com `node tools/extrair-kimbundu.mjs` e compila-se com `node tools/compilar-kimbundu.mjs`.
+
+## Vidas e exercícios
+
+- Cada lição mistura escolher a palavra, reconhecer o significado, **ouvir** (o português é lido em voz alta e escolhes a palavra; só aparece quando o aparelho tem voz em português) e **ligar pares**.
+- Cinco vidas: perdes uma por cada erro nas lições e recuperas uma a cada 15 minutos. Quem fica sem vidas pode rever os erros e ganhar uma. A revisão e a aventura de voz não gastam vidas.
+
+## Frases para um falante
+
+Em [frases/](frases/LEIA-ME.md) estão os ficheiros para um falante preencher. Depois de revistos, `node tools/importar-frases.mjs <ficheiro.csv>` gera `public/frases.json`. Nada entra na app sem revisão de um falante.
+
+## Endereço próprio (domínio)
+
+1. Compra o domínio no registo que preferires (ex.: `faladangola.com`).
+2. No DNS do domínio: quatro registos `A` para `185.199.108.153`, `185.199.109.153`, `185.199.110.153` e `185.199.111.153`, e um `CNAME` de `www` para `judilsong01-cell.github.io`.
+3. Diz-me o domínio e eu ligo-o ao GitHub Pages (ficheiro `docs/CNAME` e definição do site), ou faz-o em *Settings → Pages → Custom domain*.
+4. Quando o GitHub validar o DNS, activa *Enforce HTTPS*.
